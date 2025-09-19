@@ -35,3 +35,15 @@ FRAPCON is a fuel performance analysis code developed by the U.S. NRC for steady
 ---
 
 ## 📂 Folder Structure
+
+frapcon-vscode/
+├─ src/ # Extension source (TypeScript)
+├─ dist/ # Compiled JS
+├─ syntaxes/ # TextMate grammar for syntax
+├─ snippets/ # FRAPCON input snippets
+├─ language-configuration.json
+├─ frapconDocs.json # Parameter docs for IntelliSense
+├─ package.json
+├─ tsconfig.json
+├─ README.md
+└─ LICENSE.md
