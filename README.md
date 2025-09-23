@@ -1,4 +1,4 @@
-# FRAPCON Support for VS Code
+# FRAPCON Language Support for VS Code
 
 [![Visual Studio Marketplace](https://img.shields.io/visual-studio-marketplace/v/aozturk.frapcon-vscode?label=VS%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=aozturk.frapcon-vscode)
 [![GitHub](https://img.shields.io/github/stars/abdurrahmanozturk/frapcon-vscode?style=social)](https://github.com/abdurrahmanozturk/frapcon-vscode)
@@ -23,7 +23,7 @@ This extension aims to improve productivity and reduce errors when creating or e
 1. Install from the [Visual Studio Marketplace](https://marketplace.visualstudio.com/).  
    *(Alternatively, clone this repo and build locally with `vsce package`)*
 
-2. Open a `.inp` file — FRAPCON Support will activate automatically.
+2. Open a `.inp` file — FRAPCON Language Support will activate automatically.
 
 ---
 
