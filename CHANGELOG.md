@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.0.1] - 2025-09-19
+## [0.0.1] - 2025-09-23
 ### Added
 - Initial release 🎉
 - Syntax highlighting for `.inp` FRAPCON input files
@@ -17,3 +17,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sample input cases (UO₂, MOX)
 
 ---
+
