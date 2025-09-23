@@ -32,6 +32,15 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
@@ -40,18 +49,20 @@ const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 function activate(context) {
     console.log("FRAPCON extension activated");
-    // Load documentation JSON
+    // 🔹 Output Channel for FRAPCON
+    const outputChannel = vscode.window.createOutputChannel("FRAPCON");
+    // 📌 Load documentation JSON
     const docsPath = path.join(context.extensionPath, "docs", "frapconDocs.json");
     const docsRaw = fs.readFileSync(docsPath, "utf-8");
-    const docs = JSON.parse(docsRaw); // Expecting an array of variable objects
+    const docs = JSON.parse(docsRaw);
     // 🔍 Helper function to find variable info
     function lookupVariable(name) {
-        return docs.find(v => v.name.toLowerCase() === name.toLowerCase());
+        return docs.find((v) => v.name.toLowerCase() === name.toLowerCase());
     }
     // 🧠 Completion Provider
     const completionProvider = vscode.languages.registerCompletionItemProvider({ language: "frapcon" }, {
         provideCompletionItems() {
-            return docs.map(entry => {
+            return docs.map((entry) => {
                 var _a;
                 const item = new vscode.CompletionItem(entry.name, vscode.CompletionItemKind.Variable);
                 item.insertText = entry.name + "=";
@@ -64,8 +75,8 @@ function activate(context) {
                     `**Limitations:** ${entry.limitations}`);
                 return item;
             });
-        }
-    }, "." // Trigger completion after typing a dot or manually
+        },
+    }, "." // Trigger completion
     );
     // 🖱️ Hover Provider
     const hoverProvider = vscode.languages.registerHoverProvider("frapcon", {
@@ -88,10 +99,50 @@ function activate(context) {
                 markdown.isTrusted = true;
                 return new vscode.Hover(markdown);
             }
-        }
+        },
     });
-    // 📦 Register providers
-    context.subscriptions.push(completionProvider, hoverProvider);
+    // ▶️ Run FRAPCON Command
+    const runCommand = vscode.commands.registerCommand("frapcon.run", () => __awaiter(this, void 0, void 0, function* () {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage("No FRAPCON input file open.");
+            return;
+        }
+        const document = editor.document;
+        const filePath = document.fileName;
+        // 🔹 Get FRAPCON executable path from settings
+        let exePath = vscode.workspace
+            .getConfiguration("frapcon")
+            .get("executablePath");
+        if (!exePath) {
+            // Ask user the first time
+            exePath = yield vscode.window.showInputBox({
+                prompt: "Enter the full path to the FRAPCON executable",
+                placeHolder: "C:\\FRAPCON\\frapcon.exe  or  /usr/local/bin/frapcon",
+            });
+            if (!exePath) {
+                vscode.window.showErrorMessage("FRAPCON executable path is required to run.");
+                return;
+            }
+            // Save path to user settings
+            yield vscode.workspace
+                .getConfiguration("frapcon")
+                .update("executablePath", exePath, vscode.ConfigurationTarget.Global);
+        }
+        // 🔹 Output logs
+        outputChannel.clear();
+        outputChannel.appendLine("=== Running FRAPCON ===");
+        outputChannel.appendLine(`Executable: ${exePath}`);
+        outputChannel.appendLine(`Input file: ${filePath}`);
+        outputChannel.show(true);
+        // 🔹 Run in a new Terminal
+        const terminal = vscode.window.createTerminal("FRAPCON");
+        terminal.show();
+        terminal.sendText(`"${exePath}" "${filePath}"`);
+        vscode.window.showInformationMessage("FRAPCON started. Check Output panel and Terminal for progress.");
+    }));
+    // 📦 Register everything
+    context.subscriptions.push(completionProvider, hoverProvider, runCommand);
 }
 function deactivate() { }
 //# sourceMappingURL=extension.js.map
