@@ -2,14 +2,28 @@
   "name": "frapcon-vscode",
   "displayName": "FRAPCON Language Support",
   "description": "Syntax highlighting, snippets, and IntelliSense for FRAPCON input files (UO2 and MOX fuel rods)",
-  "version": "0.1.1",
+  "version": "0.1.0",
   "publisher": "aozturk",
   "engines": {
     "vscode": "^1.80.0"
   },
   "categories": ["Programming Languages"],
-  "keywords": ["FRAPCON", "nuclear", "fuel rod", "nuclear fuel performance", "simulation", "UO2", "MOX"],
+  "keywords": [
+    "FRAPCON",
+    "fuel performance",
+    "nuclear fuel",
+    "UO2",
+    "MOX",
+    "fuel rod",
+    "reactor",
+    "simulation",
+    "materials"
+  ],
   "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#0f172a",
+    "theme": "dark"
+  },
   "main": "./dist/extension.js",
   "activationEvents": ["onLanguage:frapcon"],
   "contributes": {
@@ -50,6 +64,7 @@
     "url": "https://github.com/abdurrahmanozturk/frapcon-vscode/issues"
   },
   "homepage": "https://github.com/abdurrahmanozturk/frapcon-vscode",
+  "license": "MIT",
   "devDependencies": {
     "typescript": "^5.6.3",
     "@types/node": "^22.5.4",
