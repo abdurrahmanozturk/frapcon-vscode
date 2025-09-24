@@ -14,7 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Snippets for common input blocks
 - IntelliSense/autocomplete using `frapconDocs.json`
 - Hover tooltips with parameter documentation
-- Sample input cases (UO₂, MOX)
+- Sample input cases
 
 ---
 

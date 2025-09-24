@@ -1,7 +1,7 @@
 {
   "name": "frapcon-vscode",
   "displayName": "FRAPCON Language Support",
-  "description": "Syntax highlighting, snippets, IntelliSense, and run support for FRAPCON input files (UO2 and MOX fuel rods).",
+  "description": "Syntax highlighting, snippets, IntelliSense, and run support for FRAPCON input files.",
   "version": "0.1.0",
   "publisher": "aozturk",
   "engines": {
@@ -12,8 +12,6 @@
     "FRAPCON",
     "fuel performance",
     "nuclear fuel",
-    "UO2",
-    "MOX",
     "fuel rod",
     "reactor",
     "simulation",

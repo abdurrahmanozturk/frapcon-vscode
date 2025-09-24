@@ -15,7 +15,7 @@ This extension aims to improve productivity and reduce errors when creating or e
 - ✅ Snippets for common input blocks  
 - ✅ IntelliSense/autocomplete for FRAPCON parameters  
 - ✅ Hover tooltips with documentation
-- ✅ Sample input cases (standard UO₂, MOX) included  
+- ✅ Sample input cases
 
 ---
 
