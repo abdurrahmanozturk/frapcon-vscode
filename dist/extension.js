@@ -47,22 +47,21 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
+const child_process_1 = require("child_process");
 function activate(context) {
     console.log("FRAPCON extension activated");
-    // 🔹 Output Channel for FRAPCON
-    const outputChannel = vscode.window.createOutputChannel("FRAPCON");
-    // 📌 Load documentation JSON
+    // Load documentation JSON
     const docsPath = path.join(context.extensionPath, "docs", "frapconDocs.json");
     const docsRaw = fs.readFileSync(docsPath, "utf-8");
-    const docs = JSON.parse(docsRaw);
+    const docs = JSON.parse(docsRaw); // Expecting an array of variable objects
     // 🔍 Helper function to find variable info
     function lookupVariable(name) {
-        return docs.find((v) => v.name.toLowerCase() === name.toLowerCase());
+        return docs.find(v => v.name.toLowerCase() === name.toLowerCase());
     }
     // 🧠 Completion Provider
     const completionProvider = vscode.languages.registerCompletionItemProvider({ language: "frapcon" }, {
         provideCompletionItems() {
-            return docs.map((entry) => {
+            return docs.map(entry => {
                 var _a;
                 const item = new vscode.CompletionItem(entry.name, vscode.CompletionItemKind.Variable);
                 item.insertText = entry.name + "=";
@@ -75,8 +74,8 @@ function activate(context) {
                     `**Limitations:** ${entry.limitations}`);
                 return item;
             });
-        },
-    }, "." // Trigger completion
+        }
+    }, "." // Trigger completion after typing a dot or manually
     );
     // 🖱️ Hover Provider
     const hoverProvider = vscode.languages.registerHoverProvider("frapcon", {
@@ -99,49 +98,62 @@ function activate(context) {
                 markdown.isTrusted = true;
                 return new vscode.Hover(markdown);
             }
-        },
+        }
     });
-    // ▶️ Run FRAPCON Command
+    // 📤 Run FRAPCON Command
     const runCommand = vscode.commands.registerCommand("frapcon.run", () => __awaiter(this, void 0, void 0, function* () {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
-            vscode.window.showErrorMessage("No FRAPCON input file open.");
+            vscode.window.showErrorMessage("No active editor found to run FRAPCON.");
             return;
         }
         const document = editor.document;
-        const filePath = document.fileName;
-        // 🔹 Get FRAPCON executable path from settings
-        let exePath = vscode.workspace
-            .getConfiguration("frapcon")
-            .get("executablePath");
-        if (!exePath) {
-            // Ask user the first time
-            exePath = yield vscode.window.showInputBox({
-                prompt: "Enter the full path to the FRAPCON executable",
-                placeHolder: "C:\\FRAPCON\\frapcon.exe  or  /usr/local/bin/frapcon",
+        if (document.languageId !== "frapcon") {
+            vscode.window.showErrorMessage("FRAPCON can only run on .inp (FRAPCON) files.");
+            return;
+        }
+        const config = vscode.workspace.getConfiguration("frapcon");
+        let executablePath = config.get("executablePath");
+        // Ask for path if not set
+        if (!executablePath) {
+            const selected = yield vscode.window.showInputBox({
+                placeHolder: "Enter the full path to FRAPCON executable",
+                prompt: "Example: C:\\FRAPCON\\FRAPCON3_4a.exe or /usr/local/bin/frapcon",
+                ignoreFocusOut: true
             });
-            if (!exePath) {
-                vscode.window.showErrorMessage("FRAPCON executable path is required to run.");
+            if (!selected) {
+                vscode.window.showErrorMessage("FRAPCON executable path is required.");
                 return;
             }
-            // Save path to user settings
-            yield vscode.workspace
-                .getConfiguration("frapcon")
-                .update("executablePath", exePath, vscode.ConfigurationTarget.Global);
+            executablePath = selected;
+            yield config.update("executablePath", executablePath, vscode.ConfigurationTarget.Global);
         }
-        // 🔹 Output logs
-        outputChannel.clear();
-        outputChannel.appendLine("=== Running FRAPCON ===");
-        outputChannel.appendLine(`Executable: ${exePath}`);
-        outputChannel.appendLine(`Input file: ${filePath}`);
+        const filePath = document.fileName;
+        // Output channel
+        const outputChannel = vscode.window.createOutputChannel("FRAPCON");
         outputChannel.show(true);
-        // 🔹 Run in a new Terminal
-        const terminal = vscode.window.createTerminal("FRAPCON");
-        terminal.show();
-        terminal.sendText(`"${exePath}" "${filePath}"`);
-        vscode.window.showInformationMessage("FRAPCON started. Check Output panel and Terminal for progress.");
+        outputChannel.appendLine(`▶ Running FRAPCON on: ${filePath}`);
+        try {
+            const child = (0, child_process_1.spawn)(executablePath, [filePath], { shell: true });
+            if (child.stdout) {
+                child.stdout.on("data", data => {
+                    outputChannel.append(data.toString());
+                });
+            }
+            if (child.stderr) {
+                child.stderr.on("data", data => {
+                    outputChannel.append(`ERROR: ${data.toString()}`);
+                });
+            }
+            child.on("close", code => {
+                outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
+            });
+        }
+        catch (err) {
+            vscode.window.showErrorMessage(`Failed to run FRAPCON: ${err.message}`);
+        }
     }));
-    // 📦 Register everything
+    // 📦 Register providers and commands
     context.subscriptions.push(completionProvider, hoverProvider, runCommand);
 }
 function deactivate() { }
