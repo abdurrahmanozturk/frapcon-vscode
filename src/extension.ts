@@ -106,7 +106,11 @@ export function activate(context: vscode.ExtensionContext) {
     outputChannel.appendLine(`▶ Running FRAPCON on: ${filePath}`);
 
     try {
-      const child = spawn(executablePath, [filePath], { shell: true });
+      const isWin = process.platform === "win32";
+      const child = spawn(executablePath, [filePath], {
+        shell: isWin ? "cmd.exe" : true
+      });
+
 
       if (child.stdout) {
         child.stdout.on("data", data => {

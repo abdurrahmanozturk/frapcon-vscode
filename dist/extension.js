@@ -134,7 +134,10 @@ function activate(context) {
         outputChannel.show(true);
         outputChannel.appendLine(`▶ Running FRAPCON on: ${filePath}`);
         try {
-            const child = (0, child_process_1.spawn)(executablePath, [filePath], { shell: true });
+            const isWin = process.platform === "win32";
+            const child = (0, child_process_1.spawn)(executablePath, [filePath], {
+                shell: isWin ? "cmd.exe" : true
+            });
             if (child.stdout) {
                 child.stdout.on("data", data => {
                     outputChannel.append(data.toString());
