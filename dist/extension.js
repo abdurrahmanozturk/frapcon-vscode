@@ -50,18 +50,24 @@ const fs = __importStar(require("fs"));
 const child_process_1 = require("child_process");
 function activate(context) {
     console.log("FRAPCON extension activated");
-    // Load documentation JSON
+    // --- Optional: documentation loading for IntelliSense (safe-guarded) ---
     const docsPath = path.join(context.extensionPath, "docs", "frapconDocs.json");
-    const docsRaw = fs.readFileSync(docsPath, "utf-8");
-    const docs = JSON.parse(docsRaw); // Expecting an array of variable objects
-    // 🔍 Helper function to find variable info
-    function lookupVariable(name) {
-        return docs.find(v => v.name.toLowerCase() === name.toLowerCase());
+    let docs = [];
+    try {
+        if (fs.existsSync(docsPath)) {
+            docs = JSON.parse(fs.readFileSync(docsPath, "utf-8"));
+        }
     }
-    // 🧠 Completion Provider
+    catch (e) {
+        console.warn("FRAPCON docs could not be loaded:", e);
+    }
+    function lookupVariable(name) {
+        return docs.find(v => { var _a, _b; return ((_b = (_a = v === null || v === void 0 ? void 0 : v.name) === null || _a === void 0 ? void 0 : _a.toLowerCase) === null || _b === void 0 ? void 0 : _b.call(_a)) === name.toLowerCase(); });
+    }
+    // --- Completion Provider ---
     const completionProvider = vscode.languages.registerCompletionItemProvider({ language: "frapcon" }, {
         provideCompletionItems() {
-            return docs.map(entry => {
+            return (docs || []).map(entry => {
                 var _a;
                 const item = new vscode.CompletionItem(entry.name, vscode.CompletionItemKind.Variable);
                 item.insertText = entry.name + "=";
@@ -75,9 +81,8 @@ function activate(context) {
                 return item;
             });
         }
-    }, "." // Trigger completion after typing a dot or manually
-    );
-    // 🖱️ Hover Provider
+    }, ".");
+    // --- Hover Provider ---
     const hoverProvider = vscode.languages.registerHoverProvider("frapcon", {
         provideHover(document, position) {
             var _a;
@@ -87,7 +92,7 @@ function activate(context) {
             const word = document.getText(wordRange);
             const entry = lookupVariable(word);
             if (entry) {
-                const markdown = new vscode.MarkdownString(`### ${entry.name}\n\n` +
+                const md = new vscode.MarkdownString(`### ${entry.name}\n\n` +
                     `*${entry.description}*\n\n` +
                     `**Units:** ${entry.units}\n\n` +
                     `**Required:** ${entry.required ? "Yes" : "No"}\n\n` +
@@ -95,68 +100,197 @@ function activate(context) {
                     `**Block:** ${entry.inputBlock}\n\n` +
                     `**Category:** ${entry.category}\n\n` +
                     `**Limitations:** ${entry.limitations}`);
-                markdown.isTrusted = true;
-                return new vscode.Hover(markdown);
+                md.isTrusted = true;
+                return new vscode.Hover(md);
             }
         }
     });
-    // 📤 Run FRAPCON Command
+    // --- Utilities ---
+    // Parse a simple shell-like arg string into tokens (handles quotes)
+    function parseArgString(argLine) {
+        if (!argLine || !argLine.trim())
+            return [];
+        const args = [];
+        let cur = "";
+        let quote = null;
+        for (let i = 0; i < argLine.length; i++) {
+            const ch = argLine[i];
+            if (quote) {
+                if (ch === quote) {
+                    quote = null;
+                }
+                else if (ch === "\\" && argLine[i + 1] === quote) {
+                    cur += quote;
+                    i++;
+                }
+                else {
+                    cur += ch;
+                }
+            }
+            else {
+                if (ch === '"' || ch === "'") {
+                    quote = ch;
+                }
+                else if (/\s/.test(ch)) {
+                    if (cur) {
+                        args.push(cur);
+                        cur = "";
+                    }
+                }
+                else {
+                    cur += ch;
+                }
+            }
+        }
+        if (cur)
+            args.push(cur);
+        return args;
+    }
+    function normalizeExe(p) {
+        // Keep as-is for POSIX; normalize backslashes for Windows convenience
+        return process.platform === "win32" ? p.replace(/\//g, "\\") : p;
+    }
+    function ensureExecutableIfNeeded(exe, output) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a;
+            if (process.platform === "win32")
+                return true; // Windows doesn't use X bit
+            try {
+                yield fs.promises.access(exe, fs.constants.X_OK);
+                return true;
+            }
+            catch (_b) {
+                // Try to chmod +x automatically
+                try {
+                    yield fs.promises.chmod(exe, 0o755);
+                    output.appendLine(`Set executable bit on: ${exe}`);
+                    return true;
+                }
+                catch (e) {
+                    output.appendLine(`Could not set execute permission on: ${exe}\n${String((_a = e === null || e === void 0 ? void 0 : e.message) !== null && _a !== void 0 ? _a : e)}`);
+                    vscode.window.showWarningMessage(`FRAPCON executable may not be runnable. Set execute permission manually:\n` +
+                        `  chmod +x "${exe}"`);
+                    return false;
+                }
+            }
+        });
+    }
+    function computeCwd(mode, filePath, exePath) {
+        var _a, _b;
+        const ws = (_b = (_a = vscode.workspace.workspaceFolders) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.uri.fsPath;
+        switch (mode) {
+            case "executableFolder": return path.dirname(exePath);
+            case "workspaceFolder": return ws;
+            case "custom":
+                return vscode.workspace.getConfiguration("frapcon").get("customWorkingDirectory") || path.dirname(filePath);
+            case "inputFolder":
+            default: return path.dirname(filePath);
+        }
+    }
+    // --- Run FRAPCON Command ---
     const runCommand = vscode.commands.registerCommand("frapcon.run", () => __awaiter(this, void 0, void 0, function* () {
+        var _a, _b, _c;
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage("No active editor found to run FRAPCON.");
             return;
         }
         const document = editor.document;
-        if (document.languageId !== "frapcon") {
-            vscode.window.showErrorMessage("FRAPCON can only run on .inp (FRAPCON) files.");
+        const filePath = document.uri.fsPath;
+        // Accept by languageId OR by .inp extension
+        const isFrapconLang = document.languageId === "frapcon";
+        const isInp = filePath.toLowerCase().endsWith(".inp");
+        if (!isFrapconLang && !isInp) {
+            vscode.window.showErrorMessage("FRAPCON can only run on FRAPCON input files (e.g., .inp).");
             return;
         }
-        const config = vscode.workspace.getConfiguration("frapcon");
-        let executablePath = config.get("executablePath");
-        // Ask for path if not set
+        // Save unsaved changes
+        if (document.isDirty) {
+            const saved = yield document.save();
+            if (!saved) {
+                vscode.window.showWarningMessage("Please save the file before running FRAPCON.");
+                return;
+            }
+        }
+        // Read settings
+        const cfg = vscode.workspace.getConfiguration("frapcon");
+        let executablePath = cfg.executablePath;
         if (!executablePath) {
-            const selected = yield vscode.window.showInputBox({
-                placeHolder: "Enter the full path to FRAPCON executable",
-                prompt: "Example: C:\\FRAPCON\\FRAPCON3_4a.exe or /usr/local/bin/frapcon",
+            const picked = yield vscode.window.showInputBox({
+                placeHolder: process.platform === "win32"
+                    ? "C:\\FRAPCON\\FRAPCON3_4a.exe"
+                    : "/usr/local/bin/frapcon",
+                prompt: "Enter the full path to the FRAPCON executable",
                 ignoreFocusOut: true
             });
-            if (!selected) {
+            if (!picked) {
                 vscode.window.showErrorMessage("FRAPCON executable path is required.");
                 return;
             }
-            executablePath = selected;
-            yield config.update("executablePath", executablePath, vscode.ConfigurationTarget.Global);
+            executablePath = picked;
+            yield vscode.workspace.getConfiguration("frapcon")
+                .update("executablePath", executablePath, vscode.ConfigurationTarget.Global);
         }
-        const filePath = document.fileName;
-        // Output channel
-        const outputChannel = vscode.window.createOutputChannel("FRAPCON");
-        outputChannel.show(true);
-        outputChannel.appendLine(`▶ Running FRAPCON on: ${filePath}`);
+        const exe = normalizeExe(executablePath);
+        if (!fs.existsSync(exe)) {
+            vscode.window.showErrorMessage(`FRAPCON executable not found:\n${exe}`);
+            return;
+        }
+        if (!fs.existsSync(filePath)) {
+            vscode.window.showErrorMessage(`Input file not found:\n${filePath}`);
+            return;
+        }
+        const output = vscode.window.createOutputChannel("FRAPCON");
+        output.clear();
+        output.show(true);
+        output.appendLine("▶ Running FRAPCON (cross‑platform)");
+        output.appendLine(`   Executable: ${exe}`);
+        output.appendLine(`   Input file: ${filePath}`);
+        // Ensure executable bit on POSIX
+        const ok = yield ensureExecutableIfNeeded(exe, output);
+        if (!ok && process.platform !== "win32") {
+            // Still try to run, but warn user
+            output.appendLine("Proceeding to run; if this fails, fix permissions as suggested above.");
+        }
+        // Build args
+        const extraArgs = parseArgString(cfg.additionalArgs);
+        const args = [...extraArgs, filePath];
+        const cwd = computeCwd(cfg.workingDirectory, filePath, exe);
+        output.appendLine(`   Working dir: ${cwd || "(VS Code default)"}`);
+        if (extraArgs.length)
+            output.appendLine(`   Additional args: ${extraArgs.join(" ")}`);
+        output.appendLine("");
         try {
-            const isWin = process.platform === "win32";
-            const child = (0, child_process_1.spawn)(executablePath, [filePath], {
-                shell: isWin ? "cmd.exe" : true
+            // ❗ No shell: this avoids quoting issues on Windows/PowerShell/cmd
+            const child = (0, child_process_1.spawn)(exe, args, {
+                cwd,
+                shell: false,
+                windowsHide: true
             });
-            if (child.stdout) {
-                child.stdout.on("data", data => {
-                    outputChannel.append(data.toString());
-                });
-            }
-            if (child.stderr) {
-                child.stderr.on("data", data => {
-                    outputChannel.append(`ERROR: ${data.toString()}`);
-                });
-            }
-            child.on("close", code => {
-                outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
+            (_a = child.stdout) === null || _a === void 0 ? void 0 : _a.on("data", d => output.append(d.toString()));
+            (_b = child.stderr) === null || _b === void 0 ? void 0 : _b.on("data", d => output.append(`ERROR: ${d.toString()}`));
+            child.on("error", (err) => {
+                var _a, _b;
+                output.appendLine(`\nProcess error: ${String((_a = err === null || err === void 0 ? void 0 : err.message) !== null && _a !== void 0 ? _a : err)}`);
+                if (process.platform === "darwin") {
+                    output.appendLine(`\nmacOS note: If the binary is blocked by Gatekeeper, you may need:\n` +
+                        `  xattr -d com.apple.quarantine "${exe}"\n` +
+                        `or allow it in System Settings > Privacy & Security.`);
+                }
+                vscode.window.showErrorMessage(`Failed to start FRAPCON: ${String((_b = err === null || err === void 0 ? void 0 : err.message) !== null && _b !== void 0 ? _b : err)}`);
+            });
+            child.on("close", (code) => {
+                output.appendLine(`\nFRAPCON finished with exit code ${code}`);
+                if (process.platform === "win32") {
+                    output.appendLine(`\nTip (PowerShell): & "${exe}" "${filePath}"\n` +
+                        `Tip (cmd.exe):    "${exe}" "${filePath}"`);
+                }
             });
         }
         catch (err) {
-            vscode.window.showErrorMessage(`Failed to run FRAPCON: ${err.message}`);
+            vscode.window.showErrorMessage(`Failed to run FRAPCON: ${(_c = err === null || err === void 0 ? void 0 : err.message) !== null && _c !== void 0 ? _c : err}`);
         }
     }));
-    // 📦 Register providers and commands
     context.subscriptions.push(completionProvider, hoverProvider, runCommand);
 }
 function deactivate() { }
