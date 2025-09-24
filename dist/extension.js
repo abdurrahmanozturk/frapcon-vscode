@@ -134,9 +134,9 @@ function activate(context) {
         // Output channel
         const outputChannel = vscode.window.createOutputChannel("FRAPCON");
         outputChannel.show(true);
-        outputChannel.appendLine(`▶ Executable: ${executablePath}\n`);
+        outputChannel.appendLine(`▶ Executable: ${executablePath}`);
         outputChannel.appendLine(`▶ Working directory: ${workingDir}`);
-        outputChannel.appendLine(`▶ Input file: ${inputFileName}`);
+        outputChannel.appendLine(`▶ Input file: ${inputFileName}\n`);
         try {
             // ✅ Run with cwd set, only filename passed
             const child = (0, child_process_1.spawn)(executablePath, [inputFileName], {
@@ -150,11 +150,13 @@ function activate(context) {
             }
             if (child.stderr) {
                 child.stderr.on("data", data => {
-                    outputChannel.append(`ERROR: ${data.toString()}`);
+                    outputChannel.append(`${data.toString()}`);
+                    // outputChannel.append(`ERROR: ${data.toString()}`);
                 });
             }
             child.on("close", code => {
-                outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
+                outputChannel.appendLine(`${code}`);
+                // outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
                 // outputChannel.appendLine(`Output files should be in: ${workingDir}`);
             });
         }
