@@ -129,14 +129,18 @@ function activate(context) {
             yield config.update("executablePath", executablePath, vscode.ConfigurationTarget.Global);
         }
         const filePath = document.fileName;
+        const workingDir = path.dirname(filePath);
+        const inputFileName = path.basename(filePath);
         // Output channel
         const outputChannel = vscode.window.createOutputChannel("FRAPCON");
         outputChannel.show(true);
-        outputChannel.appendLine(`▶ Running FRAPCON on: ${filePath}`);
+        outputChannel.appendLine(`▶ Running FRAPCON in: ${workingDir}`);
+        outputChannel.appendLine(`▶ Input file: ${inputFileName}`);
         try {
-            const isWin = process.platform === "win32";
-            const child = (0, child_process_1.spawn)(executablePath, [filePath], {
-                shell: isWin ? "cmd.exe" : true
+            // ✅ Run with cwd set, only filename passed
+            const child = (0, child_process_1.spawn)(executablePath, [inputFileName], {
+                cwd: workingDir,
+                shell: process.platform === "win32" ? "cmd.exe" : true
             });
             if (child.stdout) {
                 child.stdout.on("data", data => {
@@ -150,6 +154,7 @@ function activate(context) {
             }
             child.on("close", code => {
                 outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
+                outputChannel.appendLine(`Output files should be in: ${workingDir}`);
             });
         }
         catch (err) {
