@@ -130,7 +130,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       child.on("close", code => {
-        outputChannel.appendLine(`${code}`);
+        // outputChannel.appendLine(`${code}`);
         // outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
         // outputChannel.appendLine(`Output files should be in: ${workingDir}`);
       });
