@@ -105,7 +105,8 @@ export function activate(context: vscode.ExtensionContext) {
     // Output channel
     const outputChannel = vscode.window.createOutputChannel("FRAPCON");
     outputChannel.show(true);
-    outputChannel.appendLine(`▶ Running FRAPCON in: ${workingDir}`);
+    outputChannel.appendLine(`▶ Executable: ${executablePath}\n`);
+    outputChannel.appendLine(`▶ Working directory: ${workingDir}`);
     outputChannel.appendLine(`▶ Input file: ${inputFileName}`);
 
     try {
@@ -129,7 +130,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       child.on("close", code => {
         outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
-        outputChannel.appendLine(`Output files should be in: ${workingDir}`);
+        // outputChannel.appendLine(`Output files should be in: ${workingDir}`);
       });
 
     } catch (err: any) {

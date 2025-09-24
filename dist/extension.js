@@ -134,7 +134,8 @@ function activate(context) {
         // Output channel
         const outputChannel = vscode.window.createOutputChannel("FRAPCON");
         outputChannel.show(true);
-        outputChannel.appendLine(`▶ Running FRAPCON in: ${workingDir}`);
+        outputChannel.appendLine(`▶ Executable: ${executablePath}\n`);
+        outputChannel.appendLine(`▶ Working directory: ${workingDir}`);
         outputChannel.appendLine(`▶ Input file: ${inputFileName}`);
         try {
             // ✅ Run with cwd set, only filename passed
@@ -154,7 +155,7 @@ function activate(context) {
             }
             child.on("close", code => {
                 outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
-                outputChannel.appendLine(`Output files should be in: ${workingDir}`);
+                // outputChannel.appendLine(`Output files should be in: ${workingDir}`);
             });
         }
         catch (err) {
