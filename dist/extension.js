@@ -75,10 +75,10 @@ function activate(context) {
     // Block definitions (no $end here)
     // -------------------------
     const blockDocs = [
-        { name: "$frpcn", description: "Case control integers block. Ends with $end." },
-        { name: "$frpcon", description: "Case design and operation descriptors (real + integer variables). Ends with $end." },
-        { name: "$emfpcn", description: "Evaluation model options block. Ends with $end." },
-        { name: "$frpmox", description: "Plutonium isotopic distributions block. Ends with $end." }
+        { name: "$frpcn", description: "Case control integers block." },
+        { name: "$frpcon", description: "Case design and operation descriptors (real + integer variables)." },
+        { name: "$emfpcn", description: "Evaluation model options block." },
+        { name: "$frpmox", description: "Plutonium isotopic distributions block." }
     ];
     // -------------------------
     // Completion Provider
