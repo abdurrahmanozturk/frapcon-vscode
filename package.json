@@ -55,8 +55,17 @@
         "title": "Run FRAPCON",
         "category": "FRAPCON",
         "icon": {
-          "light": "resources/atomplayer-light.svg",
-          "dark": "resources/atomplayer-dark.svg"
+          "light": "resources/run-light.svg",
+          "dark": "resources/run-dark.svg"
+        }
+      },
+      {
+        "command": "frapcon.terminate",
+        "title": "Terminate FRAPCON",
+        "category": "FRAPCON",
+        "icon": {
+          "light": "resources/terminate-light.svg",
+          "dark": "resources/terminate-dark.svg"
         }
       }
     ],
@@ -64,7 +73,12 @@
       "editor/title": [
         {
           "command": "frapcon.run",
-          "when": "resourceLangId == frapcon",
+          "when": "resourceLangId == frapcon && !frapconRunning",
+          "group": "navigation"
+        },
+        {
+          "command": "frapcon.terminate",
+          "when": "resourceLangId == frapcon && frapconRunning",
           "group": "navigation"
         }
       ]

@@ -48,12 +48,14 @@ const vscode = __importStar(require("vscode"));
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
 const child_process_1 = require("child_process");
+let currentProcess = null;
+let statusBarItem;
 function activate(context) {
     console.log("FRAPCON extension activated");
     // Load documentation JSON
     const docsPath = path.join(context.extensionPath, "docs", "frapconDocs.json");
     const docsRaw = fs.readFileSync(docsPath, "utf-8");
-    const docs = JSON.parse(docsRaw); // Expecting an array of variable objects
+    const docs = JSON.parse(docsRaw);
     // 🔍 Helper function to find variable info
     function lookupVariable(name) {
         return docs.find(v => v.name.toLowerCase() === name.toLowerCase());
@@ -75,7 +77,7 @@ function activate(context) {
                 return item;
             });
         }
-    }, "." // Trigger completion after typing a dot or manually
+    }, "." // Trigger completion after typing a dot
     );
     // 🖱️ Hover Provider
     const hoverProvider = vscode.languages.registerHoverProvider("frapcon", {
@@ -100,7 +102,7 @@ function activate(context) {
             }
         }
     });
-    // 📤 Run FRAPCON Command
+    // ▶ Run FRAPCON Command
     const runCommand = vscode.commands.registerCommand("frapcon.run", () => __awaiter(this, void 0, void 0, function* () {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -114,7 +116,6 @@ function activate(context) {
         }
         const config = vscode.workspace.getConfiguration("frapcon");
         let executablePath = config.get("executablePath");
-        // Ask for path if not set
         if (!executablePath) {
             const selected = yield vscode.window.showInputBox({
                 placeHolder: "Enter the full path to FRAPCON executable",
@@ -129,43 +130,89 @@ function activate(context) {
             yield config.update("executablePath", executablePath, vscode.ConfigurationTarget.Global);
         }
         const filePath = document.fileName;
-        const workingDir = path.dirname(filePath);
         const inputFileName = path.basename(filePath);
-        // Output channel
+        if (!fs.existsSync(executablePath)) {
+            vscode.window.showErrorMessage(`FRAPCON executable not found at: ${executablePath}`);
+            return;
+        }
         const outputChannel = vscode.window.createOutputChannel("FRAPCON");
         outputChannel.show(true);
-        outputChannel.appendLine(`▶ Executable: ${executablePath}`);
-        outputChannel.appendLine(`▶ Working directory: ${workingDir}`);
-        outputChannel.appendLine(`▶ Input file: ${inputFileName}\n`);
+        outputChannel.appendLine(`▶ Running FRAPCON on: ${filePath}`);
+        outputChannel.appendLine(`▶ Input file: ${inputFileName}`);
+        outputChannel.appendLine(`▶ Executable: ${executablePath}\n`);
+        outputChannel.appendLine("----- FRAPCON OUTPUT -----\n");
         try {
-            // ✅ Run with cwd set, only filename passed
-            const child = (0, child_process_1.spawn)(executablePath, [inputFileName], {
-                cwd: workingDir,
-                shell: process.platform === "win32" ? "cmd.exe" : true
+            if (currentProcess) {
+                currentProcess.kill();
+                currentProcess = null;
+            }
+            currentProcess = (0, child_process_1.spawn)(executablePath, [filePath], {
+                cwd: path.dirname(filePath),
+                shell: true
             });
-            if (child.stdout) {
-                child.stdout.on("data", data => {
+            if (currentProcess.stdout) {
+                currentProcess.stdout.on("data", data => {
                     outputChannel.append(data.toString());
                 });
             }
-            if (child.stderr) {
-                child.stderr.on("data", data => {
-                    outputChannel.append(`${data.toString()}`);
-                    // outputChannel.append(`ERROR: ${data.toString()}`);
+            if (currentProcess.stderr) {
+                currentProcess.stderr.on("data", data => {
+                    outputChannel.append(`ERROR: ${data.toString()}`);
                 });
             }
-            child.on("close", code => {
-                // outputChannel.appendLine(`${code}`);
-                // outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
-                // outputChannel.appendLine(`Output files should be in: ${workingDir}`);
+            currentProcess.on("close", code => {
+                outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
+                currentProcess = null;
+                updateStatusBar(); // Reset to Run
             });
+            updateStatusBar(); // Switch to Stop
         }
         catch (err) {
             vscode.window.showErrorMessage(`Failed to run FRAPCON: ${err.message}`);
         }
     }));
+    // ⏹ Terminate FRAPCON Command
+    const terminateCommand = vscode.commands.registerCommand("frapcon.terminate", () => {
+        if (currentProcess) {
+            currentProcess.kill();
+            vscode.window.showInformationMessage("FRAPCON terminated.");
+            currentProcess = null;
+        }
+        else {
+            vscode.window.showWarningMessage("FRAPCON is not running.");
+        }
+        updateStatusBar();
+    });
+    // ⚡ Status Bar Item
+    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+    statusBarItem.command = "frapcon.run"; // default
+    context.subscriptions.push(statusBarItem);
+    updateStatusBar();
+    statusBarItem.show();
     // 📦 Register providers and commands
-    context.subscriptions.push(completionProvider, hoverProvider, runCommand);
+    context.subscriptions.push(completionProvider, hoverProvider, runCommand, terminateCommand);
 }
-function deactivate() { }
+function deactivate() {
+    if (currentProcess) {
+        currentProcess.kill();
+        currentProcess = null;
+    }
+}
+// 🔄 Update status bar text & command
+function updateStatusBar() {
+    if (currentProcess) {
+        // Update status bar
+        statusBarItem.text = "$(debug-stop) Terminate FRAPCON";
+        statusBarItem.tooltip = "Click to terminate FRAPCON";
+        statusBarItem.command = "frapcon.terminate";
+        // Set VS Code context → used by package.json "when"
+        vscode.commands.executeCommand("setContext", "frapconRunning", true);
+    }
+    else {
+        statusBarItem.text = "$(play) Run FRAPCON";
+        statusBarItem.tooltip = "Click to run FRAPCON on the active file";
+        statusBarItem.command = "frapcon.run";
+        vscode.commands.executeCommand("setContext", "frapconRunning", false);
+    }
+}
 //# sourceMappingURL=extension.js.map

@@ -1,22 +1,10 @@
-<?xml version="1.0" standalone="no"?>
-<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 20010904//EN"
- "http://www.w3.org/TR/2001/REC-SVG-20010904/DTD/svg10.dtd">
-<svg version="1.0" xmlns="http://www.w3.org/2000/svg"
- width="1024.000000pt" height="1024.000000pt" viewBox="0 0 1024.000000 1024.000000"
- preserveAspectRatio="xMidYMid meet">
-
-<g transform="translate(0.000000,1024.000000) scale(0.100000,-0.100000)"
-fill="#000000" stroke="none">
-<path d="M2310 8635 c-357 -77 -629 -348 -701 -700 -18 -87 -19 -195 -19
--2810 l0 -2720 25 -107 c57 -253 204 -458 422 -587 79 -47 222 -98 303 -109
-30 -4 1293 -7 2805 -7 2661 0 2752 1 2820 19 362 97 623 389 675 754 8 54 10
-881 8 2807 l-3 2730 -22 78 c-91 318 -302 538 -610 634 l-88 28 -2775 2
-c-2346 1 -2785 -1 -2840 -12z m1706 -1588 c28 -14 156 -89 285 -168 129 -78
-266 -161 304 -184 39 -23 187 -113 330 -200 143 -87 280 -170 305 -185 25 -15
-119 -72 210 -127 453 -275 667 -405 1025 -620 215 -129 401 -245 413 -256 75
--69 103 -200 63 -293 -12 -28 -39 -67 -59 -87 -20 -19 -199 -133 -397 -253
--198 -119 -443 -267 -545 -329 -102 -62 -367 -222 -590 -357 -485 -293 -1132
--686 -1215 -738 -150 -93 -215 -112 -319 -90 -47 10 -67 20 -106 58 -87 85
--81 -76 -78 1913 l3 1754 23 47 c67 135 213 183 348 115z"/>
-</g>
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+  <!-- Uniform orbits -->
+  <g stroke="#A67C00" stroke-width="1.2" stroke-opacity="0.70" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="8" cy="8" rx="6.2" ry="3.3"/>
+    <ellipse cx="8" cy="8" rx="6.2" ry="3.3" transform="rotate(60 8 8)"/>
+    <ellipse cx="8" cy="8" rx="6.2" ry="3.3" transform="rotate(-60 8 8)"/>
+  </g>
+  <!-- Play button centered (opaque) -->
+  <path d="M6.6 5.1 L11.7 8 L6.6 10.9 Z" fill="#A67C00"/>
 </svg>
