@@ -161,7 +161,7 @@ function activate(context) {
                 });
             }
             currentProcess.on("close", code => {
-                outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
+                // outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
                 currentProcess = null;
                 updateStatusBar(); // Reset to Run
             });
