@@ -138,7 +138,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       currentProcess.on("close", code => {
-        outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
+        // outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
         currentProcess = null;
         updateStatusBar(); // Reset to Run
       });
