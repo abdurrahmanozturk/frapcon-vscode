@@ -54,42 +54,122 @@ function activate(context) {
     console.log("FRAPCON extension activated");
     // Load documentation JSON
     const docsPath = path.join(context.extensionPath, "docs", "frapconDocs.json");
-    const docsRaw = fs.readFileSync(docsPath, "utf-8");
-    const docs = JSON.parse(docsRaw);
-    // 🔍 Helper function to find variable info
-    function lookupVariable(name) {
-        return docs.find(v => v.name.toLowerCase() === name.toLowerCase());
+    let docs = [];
+    try {
+        const docsRaw = fs.readFileSync(docsPath, "utf-8");
+        docs = JSON.parse(docsRaw);
     }
-    // 🧠 Completion Provider
+    catch (e) {
+        console.warn("FRAPCON docs not found or invalid JSON:", e);
+    }
+    // 🔍 Lookup helpers
+    function lookupVariable(name) {
+        return docs.find((v) => v.name.toLowerCase() === name.toLowerCase());
+    }
+    function getRequiredParams(blockName) {
+        return docs
+            .filter((v) => { var _a; return ((_a = v.inputBlock) === null || _a === void 0 ? void 0 : _a.toLowerCase()) === blockName.toLowerCase() && v.required; })
+            .map((v, i) => { var _a; return `${v.name} = \${${i + 1}:${(_a = v.default) !== null && _a !== void 0 ? _a : ""}}`; });
+    }
+    // -------------------------
+    // Block definitions (no $end here)
+    // -------------------------
+    const blockDocs = [
+        { name: "$frpcn", description: "Case control integers block. Ends with $end." },
+        { name: "$frpcon", description: "Case design and operation descriptors (real + integer variables). Ends with $end." },
+        { name: "$emfpcn", description: "Evaluation model options block. Ends with $end." },
+        { name: "$frpmox", description: "Plutonium isotopic distributions block. Ends with $end." }
+    ];
+    // -------------------------
+    // Completion Provider
+    // -------------------------
     const completionProvider = vscode.languages.registerCompletionItemProvider({ language: "frapcon" }, {
-        provideCompletionItems() {
-            return docs.map(entry => {
-                var _a;
-                const item = new vscode.CompletionItem(entry.name, vscode.CompletionItemKind.Variable);
-                item.insertText = entry.name + "=";
-                item.documentation = new vscode.MarkdownString(`**${entry.name}**\n\n${entry.description}\n\n` +
-                    `**Units:** ${entry.units}\n` +
-                    `**Required:** ${entry.required ? "Yes" : "No"}\n` +
-                    `**Default:** ${(_a = entry.default) !== null && _a !== void 0 ? _a : "None"}\n` +
-                    `**Block:** ${entry.inputBlock}\n` +
-                    `**Category:** ${entry.category}\n` +
-                    `**Limitations:** ${entry.limitations}`);
-                return item;
-            });
+        provideCompletionItems(document, position) {
+            try {
+                const linePrefix = document.lineAt(position).text.substring(0, position.character);
+                const tokenMatch = linePrefix.match(/[A-Za-z0-9_\$]+$/);
+                if (tokenMatch) {
+                    const typed = tokenMatch[0].toLowerCase();
+                    // ✅ Block suggestions (match includes typed fragment)
+                    const blockSuggestions = blockDocs
+                        .filter(b => b.name.toLowerCase().includes(typed))
+                        .map(b => {
+                        const escapedName = b.name.replace(/\$/g, "\\$");
+                        const requiredParams = getRequiredParams(b.name).join(",\n\t");
+                        const snippetText = requiredParams.length > 0
+                            ? `${escapedName}\n\t${requiredParams}\n$0\n\\$end`
+                            : `${escapedName}\n\t$0\n\\$end`;
+                        // Check if block has required params → mark it as "required block"
+                        const hasRequired = docs.some((v) => { var _a; return ((_a = v.inputBlock) === null || _a === void 0 ? void 0 : _a.toLowerCase()) === b.name.toLowerCase() && v.required; });
+                        const kind = hasRequired ? vscode.CompletionItemKind.EnumMember : vscode.CompletionItemKind.Module;
+                        const item = new vscode.CompletionItem(b.name, kind);
+                        item.label = {
+                            label: b.name,
+                            description: hasRequired ? `Required Block 🔴` : `Optional Block`
+                        };
+                        item.detail = hasRequired
+                            ? "Block contains required parameters"
+                            : "Block contains only optional parameters";
+                        item.documentation = new vscode.MarkdownString(`**${b.name}**\n\n${b.description}\n\n` +
+                            `*This block ${hasRequired ? "**has required parameters 🔴**" : "has only optional parameters"}*`);
+                        item.insertText = new vscode.SnippetString(snippetText);
+                        const replaceRange = new vscode.Range(position.line, position.character - tokenMatch[0].length, position.line, position.character);
+                        item.range = replaceRange;
+                        return item;
+                    });
+                    if (blockSuggestions.length > 0) {
+                        return blockSuggestions;
+                    }
+                }
+                // ✅ Variable suggestions (unchanged)
+                const items = docs.map((entry) => {
+                    var _a, _b;
+                    const sortText = (entry.required ? "0" : "1") + (entry.name || "");
+                    const kind = entry.required
+                        ? vscode.CompletionItemKind.EnumMember
+                        : vscode.CompletionItemKind.Variable;
+                    const item = new vscode.CompletionItem(entry.name, kind);
+                    item.label = {
+                        label: entry.name,
+                        description: entry.required ? `${entry.inputBlock} 🔴` : (_a = entry.inputBlock) !== null && _a !== void 0 ? _a : ""
+                    };
+                    item.insertText = entry.name + "=";
+                    item.detail = entry.required ? "Required parameter" : "Optional parameter";
+                    item.sortText = sortText;
+                    item.documentation = new vscode.MarkdownString(`**${entry.name}**\n\n${entry.description}\n\n` +
+                        `**Units:** ${entry.units}\n\n` +
+                        `**Required:** ${entry.required ? "Yes 🔴" : "No"}\n\n` +
+                        `**Default:** ${(_b = entry.default) !== null && _b !== void 0 ? _b : "None"}\n\n` +
+                        `**Block:** ${entry.inputBlock}\n\n` +
+                        `**Category:** ${entry.category}\n\n` +
+                        `**Limitations:** ${entry.limitations}`);
+                    return item;
+                });
+                return items;
+            }
+            catch (err) {
+                console.error("FRAPCON completion error:", err);
+                return [];
+            }
         }
-    }, "." // Trigger completion after typing a dot
-    );
-    // 🖱️ Hover Provider
+    }, "$", ".", "f", "r", "p", "c", "n", "m", "o", "x", "e");
+    // -------------------------
+    // Hover Provider (unchanged)
+    // -------------------------
     const hoverProvider = vscode.languages.registerHoverProvider("frapcon", {
         provideHover(document, position) {
             var _a;
-            const wordRange = document.getWordRangeAtPosition(position, /[A-Za-z0-9_]+/);
+            const wordRange = document.getWordRangeAtPosition(position, /\$?[A-Za-z0-9_]+/);
             if (!wordRange)
                 return;
             const word = document.getText(wordRange);
+            const block = blockDocs.find(b => b.name.toLowerCase() === word.toLowerCase());
+            if (block) {
+                return new vscode.Hover(new vscode.MarkdownString(`### ${block.name}\n\n${block.description}\n\nEnds with \`$end\`.`));
+            }
             const entry = lookupVariable(word);
             if (entry) {
-                const markdown = new vscode.MarkdownString(`### ${entry.name}\n\n` +
+                const md = new vscode.MarkdownString(`### ${entry.name}\n\n` +
                     `*${entry.description}*\n\n` +
                     `**Units:** ${entry.units}\n\n` +
                     `**Required:** ${entry.required ? "Yes" : "No"}\n\n` +
@@ -97,12 +177,15 @@ function activate(context) {
                     `**Block:** ${entry.inputBlock}\n\n` +
                     `**Category:** ${entry.category}\n\n` +
                     `**Limitations:** ${entry.limitations}`);
-                markdown.isTrusted = true;
-                return new vscode.Hover(markdown);
+                md.isTrusted = true;
+                return new vscode.Hover(md);
             }
+            return null;
         }
     });
-    // ▶ Run FRAPCON Command
+    // -------------------------
+    // Run / Terminate / Status bar logic
+    // -------------------------
     const runCommand = vscode.commands.registerCommand("frapcon.run", () => __awaiter(this, void 0, void 0, function* () {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -119,7 +202,7 @@ function activate(context) {
         if (!executablePath) {
             const selected = yield vscode.window.showInputBox({
                 placeHolder: "Enter the full path to FRAPCON executable",
-                prompt: "Example: C:\\FRAPCON\\FRAPCON3_4a.exe or /usr/local/bin/frapcon",
+                prompt: "Example: C:\\FRAPCON\\FRAPCON.exe or /usr/local/bin/frapcon",
                 ignoreFocusOut: true
             });
             if (!selected) {
@@ -137,10 +220,10 @@ function activate(context) {
         }
         const outputChannel = vscode.window.createOutputChannel("FRAPCON");
         outputChannel.show(true);
-        outputChannel.appendLine(`▶ Running FRAPCON on: ${filePath}`);
-        outputChannel.appendLine(`▶ Input file: ${inputFileName}`);
-        outputChannel.appendLine(`▶ Executable: ${executablePath}\n`);
-        outputChannel.appendLine("----- FRAPCON OUTPUT -----\n");
+        outputChannel.appendLine(`FRAPCON Executable: ${executablePath}`);
+        outputChannel.appendLine(`Working Directory : ${filePath}`);
+        outputChannel.appendLine(`Input File        : ${inputFileName}\n`);
+        outputChannel.appendLine(`------------------------------------\n`);
         try {
             if (currentProcess) {
                 currentProcess.kill();
@@ -161,17 +244,16 @@ function activate(context) {
                 });
             }
             currentProcess.on("close", code => {
-                // outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
+                outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
                 currentProcess = null;
-                updateStatusBar(); // Reset to Run
+                updateStatusBar();
             });
-            updateStatusBar(); // Switch to Stop
+            updateStatusBar();
         }
         catch (err) {
             vscode.window.showErrorMessage(`Failed to run FRAPCON: ${err.message}`);
         }
     }));
-    // ⏹ Terminate FRAPCON Command
     const terminateCommand = vscode.commands.registerCommand("frapcon.terminate", () => {
         if (currentProcess) {
             currentProcess.kill();
@@ -183,13 +265,11 @@ function activate(context) {
         }
         updateStatusBar();
     });
-    // ⚡ Status Bar Item
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-    statusBarItem.command = "frapcon.run"; // default
+    statusBarItem.command = "frapcon.run";
     context.subscriptions.push(statusBarItem);
     updateStatusBar();
     statusBarItem.show();
-    // 📦 Register providers and commands
     context.subscriptions.push(completionProvider, hoverProvider, runCommand, terminateCommand);
 }
 function deactivate() {
@@ -198,14 +278,11 @@ function deactivate() {
         currentProcess = null;
     }
 }
-// 🔄 Update status bar text & command
 function updateStatusBar() {
     if (currentProcess) {
-        // Update status bar
         statusBarItem.text = "$(debug-stop) Terminate FRAPCON";
         statusBarItem.tooltip = "Click to terminate FRAPCON";
         statusBarItem.command = "frapcon.terminate";
-        // Set VS Code context → used by package.json "when"
         vscode.commands.executeCommand("setContext", "frapconRunning", true);
     }
     else {

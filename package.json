@@ -67,6 +67,10 @@
           "light": "resources/terminate-light.svg",
           "dark": "resources/terminate-dark.svg"
         }
+      },
+      {
+        "command": "frapcon.generateTemplate",
+        "title": "Generate FRAPCON Input Template"
       }
     ],
     "menus": {
