@@ -21,7 +21,7 @@ const tmLanguage = {
     },
     {
       name: "keyword.control.frapcon",
-      match: "\\${1,2}(frpcon|frpmox|frpcn|end)\\b"
+      match: "\\${1,2}(frpcon|frpmox|frpcn|emfpcn|end)\\b"
     },
     {
       name: "variable.parameter.frapcon",

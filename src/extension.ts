@@ -40,7 +40,7 @@ export function activate(context: vscode.ExtensionContext) {
   ];
 
   // -------------------------
-  // Completion Provider
+  // Completion Provider (variables, blocks, header snippet)
   // -------------------------
   const completionProvider = vscode.languages.registerCompletionItemProvider(
     { language: "frapcon" },
@@ -50,27 +50,74 @@ export function activate(context: vscode.ExtensionContext) {
           const linePrefix = document.lineAt(position).text.substring(0, position.character);
           const tokenMatch = linePrefix.match(/[A-Za-z0-9_\$]+$/);
 
+          const items: vscode.CompletionItem[] = [];
+
+          // ===== HEADER SNIPPET =====
+          const headerSnippet = new vscode.CompletionItem("header", vscode.CompletionItemKind.File);
+          headerSnippet.insertText = new vscode.SnippetString(
+            `*=====================================================================*\n` +
+              `*            FRAPCON3.4 - Steady-State Fuel Rod Analysis Code         *\n` +
+              `*=====================================================================*\n` +
+              `*-----------------------------Input Files-----------------------------*\n` +
+              `FILE05='nullfile',\n\tSTATUS='UNKNOWN',\n\tFORM='FORMATTED',\n\tCARRIAGE CONTROL='NONE'\n` +
+              `*-----------------------------Output Files----------------------------*\n` +
+              `FILE06='\${1:case}.out',\n\tSTATUS='UNKNOWN',\n\tCARRIAGE CONTROL='LIST'\n` +
+              `FILE66='\${1:case}.plot',\n\tSTATUS='UNKNOWN',\n\tFORM='FORMATTED',\n\tCARRIAGE CONTROL='LIST'\n` +
+              `*=====================================================================*\n` +
+              `/************************ Case : \${2:Name (max 72 chars)} ************************/\n` +
+              `*=====================================================================*\n` +
+              `\n`
+          );
+          headerSnippet.detail = "FRAPCON input header (file setup + case description)";
+          headerSnippet.documentation = new vscode.MarkdownString(
+            "Inserts the required file setup lines (`FILE05`, `FILE06`, `FILE66`), the `/*********` separator, " +
+              "and a placeholder for the case description. These lines must precede all `$frpcn`, `$frpcon`, `$emfpcn`, `$frpmox` blocks."
+          );
+          items.push(headerSnippet);
+
+          // ===== BLOCKS =====
           if (tokenMatch) {
             const typed = tokenMatch[0].toLowerCase();
-
-            // ✅ Block suggestions (match includes typed fragment)
             const blockSuggestions = blockDocs
               .filter(b => b.name.toLowerCase().includes(typed))
               .map(b => {
-                const escapedName = b.name.replace(/\$/g, "\\$");
+                // Escape block name ONLY for snippet syntax
+                const blockName = b.name.replace(/\$/g, "\\$");
 
-                const requiredParams = getRequiredParams(b.name).join(",\n\t");
-                const snippetText =
-                  requiredParams.length > 0
-                    ? `${escapedName}\n\t${requiredParams}\n$0\n\\$end`
-                    : `${escapedName}\n\t$0\n\\$end`;
+                // Get required params
+                const rawParams = docs
+                  .filter((v: any) => v.inputBlock?.toLowerCase() === b.name.toLowerCase() && v.required)
+                  .map((v: any, i: number) => ({
+                    name: v.name,
+                    snippet: `${v.name} = \${${i + 1}:${v.default ?? ""}}`
+                  }));
 
-                // Check if block has required params → mark it as "required block"
-                const hasRequired = docs.some(
-                  (v: any) => v.inputBlock?.toLowerCase() === b.name.toLowerCase() && v.required
-                );
+                // Align "=" by padding names
+                let paramsText = "";
+                if (rawParams.length > 0) {
+                  const maxLen = Math.max(...rawParams.map(p => p.name.length));
+                  paramsText = rawParams
+                    .map((p, i) => {
+                      const pad = " ".repeat(maxLen - p.name.length);
+                      const line =
+                        `${p.name}${pad} = \${${i + 1}:${docs.find(v => v.name === p.name)?.default ?? ""}}` +
+                        (i < rawParams.length - 1 ? "," : ",$0");
+                      return line;
+                    })
+                    .join("\n\t");
+                } else {
+                  paramsText = "$0";
+                }
 
-                const kind = hasRequired ? vscode.CompletionItemKind.EnumMember : vscode.CompletionItemKind.Module;
+                // ✅ Block name + aligned params + $end
+                const snippetText = `${blockName}\n\t${paramsText}\n\\$end`;
+
+                const hasRequired = rawParams.length > 0;
+
+                const kind = hasRequired
+                  ? vscode.CompletionItemKind.EnumMember
+                  : vscode.CompletionItemKind.Module;
+
                 const item = new vscode.CompletionItem(b.name, kind);
 
                 (item as any).label = {
@@ -99,14 +146,11 @@ export function activate(context: vscode.ExtensionContext) {
 
                 return item;
               });
-
-            if (blockSuggestions.length > 0) {
-              return blockSuggestions;
-            }
+            items.push(...blockSuggestions);
           }
 
-          // ✅ Variable suggestions (unchanged)
-          const items: vscode.CompletionItem[] = docs.map((entry: any) => {
+          // ===== VARIABLES =====
+          const variableItems: vscode.CompletionItem[] = docs.map((entry: any) => {
             const sortText = (entry.required ? "0" : "1") + (entry.name || "");
             const kind = entry.required
               ? vscode.CompletionItemKind.EnumMember
@@ -131,6 +175,7 @@ export function activate(context: vscode.ExtensionContext) {
             );
             return item;
           });
+          items.push(...variableItems);
 
           return items;
         } catch (err) {
@@ -139,17 +184,36 @@ export function activate(context: vscode.ExtensionContext) {
         }
       }
     },
-    "$", ".", "f", "r", "p", "c", "n", "m", "o", "x", "e"
+    "$", ".", "f", "r", "p", "c", "n", "m", "o", "x", "e", "h"
   );
 
   // -------------------------
-  // Hover Provider (unchanged)
+  // Hover Provider (includes FILE05/06/66 help)
   // -------------------------
   const hoverProvider = vscode.languages.registerHoverProvider("frapcon", {
     provideHover(document: vscode.TextDocument, position: vscode.Position) {
       const wordRange = document.getWordRangeAtPosition(position, /\$?[A-Za-z0-9_]+/);
       if (!wordRange) return;
       const word = document.getText(wordRange);
+
+      // Special-case FILE05/06/66
+      if (word.toUpperCase() === "FILE05") {
+        return new vscode.Hover(
+          new vscode.MarkdownString("**FILE05**: Creates the `nullfile`, required for FRAPCON-3.3/3.4.")
+        );
+      }
+      if (word.toUpperCase() === "FILE06") {
+        return new vscode.Hover(
+          new vscode.MarkdownString("**FILE06**: Specifies the output file (default: `case.out`).")
+        );
+      }
+      if (word.toUpperCase() === "FILE66") {
+        return new vscode.Hover(
+          new vscode.MarkdownString(
+            "**FILE66**: Specifies the optional plot file (default: `case.plot`). Used if NPLOT is set."
+          )
+        );
+      }
 
       const block = blockDocs.find(b => b.name.toLowerCase() === word.toLowerCase());
       if (block) {
