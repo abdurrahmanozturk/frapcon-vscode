@@ -7,14 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [0.1.0] - 2025-09-23
+## [0.1.0] - 2025-09-26
 ### Added
 - Initial release 🎉
 - Syntax highlighting for `.inp` FRAPCON input files
-- Snippets for common input blocks
+- Snippets for header and common input blocks
 - IntelliSense/autocomplete using `frapconDocs.json`
 - Hover tooltips with parameter documentation
-- Sample input cases
+- Sample input case for MOX fuel rod analysis
 
 ---
 

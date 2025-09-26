@@ -12,10 +12,10 @@ This extension aims to improve productivity and reduce errors when creating or e
 
 ## ✨ Features
 - ✅ Syntax highlighting for `.inp` FRAPCON input files  
-- ✅ Snippets for common input blocks  
+- ✅ Snippets for header and common input blocks  
 - ✅ IntelliSense/autocomplete for FRAPCON parameters  
 - ✅ Hover tooltips with documentation
-- ✅ Sample input cases
+- ✅ Sample input case for MOX fuel rod analysis
 
 ---
 
@@ -29,7 +29,7 @@ This extension aims to improve productivity and reduce errors when creating or e
 
 ## 🚀 Usage
 - Create or open a FRAPCON input file (`.inp`).  
-- Type `case` to trigger snippets.  
+- Type `case` to trigger case snippets.
 - Hover over keywords to see documentation.  
 - Use IntelliSense (`Ctrl+Space`) to explore available parameters.
 
