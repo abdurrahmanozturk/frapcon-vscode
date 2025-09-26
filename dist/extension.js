@@ -295,11 +295,13 @@ function activate(context) {
             }
             if (currentProcess.stderr) {
                 currentProcess.stderr.on("data", data => {
-                    outputChannel.append(`ERROR: ${data.toString()}`);
+                    // outputChannel.append(`ERROR: ${data.toString()}`);
+                    outputChannel.append(data.toString());
                 });
             }
             currentProcess.on("close", code => {
-                outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
+                // outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
+                outputChannel.append(`${code}`);
                 currentProcess = null;
                 updateStatusBar();
             });
