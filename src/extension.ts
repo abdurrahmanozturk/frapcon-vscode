@@ -285,7 +285,7 @@ export function activate(context: vscode.ExtensionContext) {
     outputChannel.appendLine(`FRAPCON Executable: ${executablePath}`);
     outputChannel.appendLine(`Working Directory : ${filePath}`);
     outputChannel.appendLine(`Input File        : ${inputFileName}\n`);
-    outputChannel.appendLine(`------------------------------------\n`);
+    outputChannel.appendLine(`------------------------------------------------------\n`);
     
     try {
       if (currentProcess) {
@@ -311,7 +311,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
       currentProcess.on("close", code => {
         // outputChannel.appendLine(`\nFRAPCON finished with exit code ${code}`);
-        outputChannel.append(`${code}`);        
+        outputChannel.append(`\n---------------------------${code}---------------------------\n`);
         currentProcess = null;
         updateStatusBar();
       });
